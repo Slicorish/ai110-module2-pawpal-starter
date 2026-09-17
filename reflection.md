@@ -7,6 +7,18 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+* Three core actions a user should be able to perform
+    - create a pet
+    - feed the pet
+    - create todo list for the pet
+
+* Main objects, their attributes, and their methods
+    1. Pet: attributes --> name, age, birthday, weight, gender, color ; methods --> eat, walk, bark, sleep, play
+    2. Food: attributes --> type (dry or wet food), serving_size ; methods --> purchase, feed
+    3. Todo_List: attributes --> task ; methods --> remove, print, add
+    4. Task: attributes --> description, duration, deadline, priority ; methods: create, delete
+    5. Owner: attributes --> name, schedule for the day ; methods: create schedule, edit schedule
+
 **b. Design changes**
 
 - Did your design change during implementation?
