@@ -192,6 +192,10 @@ class Owner:
         """Create the owner's Scheduler, linked back to this owner."""
         self.schedule = Scheduler(owner=self)
 
+    def add_pet(self, pet: Pet) -> None:
+        """Add a pet to this owner."""
+        self.pets.append(pet)
+
     def add_task(self, task: Task) -> None:
         """Add a task to the schedule; its pet must belong to this owner."""
         if not any(task.pet is p for p in self.pets):
