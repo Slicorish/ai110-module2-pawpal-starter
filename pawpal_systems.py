@@ -19,11 +19,13 @@ class Task:
     start_time: datetime | None = None  # optional; only timed tasks can conflict
 
     def __post_init__(self) -> None:
+        """Reject frequencies other than once, daily or weekly."""
         if self.frequency != "once" and self.frequency not in FREQUENCY_DAYS:
             raise ValueError(f"Unknown frequency: {self.frequency}")
 
     @property
     def end_time(self) -> datetime | None:
+        """When the task finishes (start_time plus duration), or None if untimed."""
         if self.start_time is None:
             return None
         return self.start_time + timedelta(minutes=self.duration)
@@ -55,6 +57,7 @@ class Scheduler:
     tasks: list[Task] = field(default_factory=list)  # Scheduler "1" -> "many" Task
 
     def display_list(self) -> None:
+        """Print the tasks as a numbered list with status, pet, priority and timing."""
         if not self.tasks:
             print("No tasks.")
             return
@@ -68,11 +71,13 @@ class Scheduler:
             )
 
     def prioritize(self) -> None:
+        """Sort the tasks in place: incomplete first, then priority, deadline, duration."""
         self.tasks.sort(key=_priority_key)
 
     def filter_tasks(
         self, pet: Pet | None = None, completed: bool | None = None
     ) -> list[Task]:
+        """Return the tasks matching the given pet and completion status (None = any)."""
         return [
             t
             for t in self.tasks
@@ -124,11 +129,13 @@ class Food:
     quantity: int = 0  # units in stock, updated by purchase() and feed()
 
     def purchase(self, quantity: int = 1) -> None:
+        """Add units to the food stock; the quantity must be positive."""
         if quantity <= 0:
             raise ValueError("quantity must be positive")
         self.quantity += quantity
 
     def feed(self, pet: Pet) -> None:
+        """Use one unit of stock to feed the pet; raise ValueError if none is left."""
         if self.quantity <= 0:
             raise ValueError(f"No {self.food_type} left to feed {pet.name}")
         self.quantity -= 1
@@ -147,24 +154,30 @@ class Pet:
 
     @property
     def age(self) -> int:
+        """The pet's age in whole years, computed from its birthday."""
         today = date.today()
         had_birthday = (today.month, today.day) >= (self.birthday.month, self.birthday.day)
         return today.year - self.birthday.year - (not had_birthday)
 
     def eat(self, food: Food) -> str:
+        """Return a message describing the pet eating the given food."""
         return f"{self.name} ate {food.serving_size} of {food.food_type}"
 
     def walk(self) -> str:
+        """Return a message describing the pet going for a walk."""
         return f"{self.name} went for a walk"
 
     def make_sound(self) -> str:
+        """Return the sound the pet makes, based on its species."""
         sounds = {"dog": "Woof!", "cat": "Meow!", "bird": "Tweet!"}
         return f"{self.name}: {sounds.get(self.species.lower(), '...')}"
 
     def sleep(self) -> str:
+        """Return a message describing the pet sleeping."""
         return f"{self.name} is sleeping"
 
     def play(self) -> str:
+        """Return a message describing the pet playing."""
         return f"{self.name} is playing"
 
 
@@ -176,15 +189,19 @@ class Owner:
     schedule: Scheduler = field(init=False)  # Owner "1" -> "1" Scheduler, holds the tasks
 
     def __post_init__(self) -> None:
+        """Create the owner's Scheduler, linked back to this owner."""
         self.schedule = Scheduler(owner=self)
 
     def add_task(self, task: Task) -> None:
+        """Add a task to the schedule; its pet must belong to this owner."""
         if not any(task.pet is p for p in self.pets):
             raise ValueError(f"{task.pet.name} does not belong to {self.name}")
         self.schedule.tasks.append(task)
 
     def remove_task(self, task: Task) -> None:
+        """Remove a task from the schedule; raise ValueError if it isn't there."""
         self.schedule.tasks.remove(task)
 
     def tasks_for(self, pet: Pet) -> list[Task]:
+        """Return the scheduled tasks that belong to the given pet."""
         return [t for t in self.schedule.tasks if t.pet is pet]
