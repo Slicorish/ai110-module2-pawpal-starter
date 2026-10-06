@@ -15,8 +15,8 @@
 * Main objects, their attributes, and their methods
     1. Pet: attributes --> name, age, birthday, weight, gender, color ; methods --> eat, walk, bark, sleep, play
     2. Food: attributes --> type (dry or wet food), serving_size ; methods --> purchase, feed
-    3. Todo_List: attributes --> task ; methods --> remove, print, add
-    4. Task: attributes --> description, duration, deadline, priority ; methods: create, delete
+    3. Todo_List: attributes --> task ; methods --> remove, print, add, prioritize
+    4. Task: attributes --> description, duration, deadline, priority ; methods: create, delete,complete
     5. Owner: attributes --> name, schedule for the day ; methods: create schedule, edit schedule
 
 **b. Design changes**

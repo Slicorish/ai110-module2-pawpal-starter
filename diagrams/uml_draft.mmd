@@ -1,0 +1,51 @@
+classDiagram
+    class Pet {
+        +string name
+        +int age
+        +date birthday
+        +float weight
+        +string gender
+        +string color
+        +eat()
+        +walk()
+        +bark()
+        +sleep()
+        +play()
+    }
+
+    class Food {
+        +string type
+        +float serving_size
+        +purchase()
+        +feed()
+    }
+
+    class Todo_List {
+        +list~Task~ task
+        +add()
+        +remove()
+        +print()
+        +prioritize()
+    }
+
+    class Task {
+        +string description
+        +int duration
+        +date deadline
+        +int priority
+        +create()
+        +delete()
+        +complete()
+    }
+
+    class Owner {
+        +string name
+        +Schedule schedule
+        +create_schedule()
+        +edit_schedule()
+    }
+
+    Owner "1" --> "many" Pet : owns
+    Pet "1" --> "many" Food : eats
+    Pet "1" --> "1" Todo_List : has
+    Todo_List "1" --> "many" Task : contains
