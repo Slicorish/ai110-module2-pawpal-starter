@@ -51,6 +51,7 @@ class Food:
 @dataclass
 class Pet:
     name: str
+    species: str
     age: int
     birthday: date
     weight: float
