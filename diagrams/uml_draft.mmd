@@ -6,6 +6,8 @@ classDiagram
         +float weight
         +string gender
         +string color
+        +list~Food~ foods
+        +Todo_List todo_list
         +eat()
         +walk()
         +bark()
@@ -40,7 +42,8 @@ classDiagram
 
     class Owner {
         +string name
-        +Schedule schedule
+        +Todo_List schedule
+        +list~Pet~ pets
         +create_schedule()
         +edit_schedule()
     }
@@ -49,3 +52,4 @@ classDiagram
     Pet "1" --> "many" Food : eats
     Pet "1" --> "1" Todo_List : has
     Todo_List "1" --> "many" Task : contains
+    Owner "1" --> "1" Todo_List : schedule
