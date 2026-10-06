@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import date
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime, timedelta
+
+# Days until the next occurrence of a recurring task
+FREQUENCY_DAYS = {"daily": 1, "weekly": 7}
 
 
 @dataclass
@@ -12,25 +15,106 @@ class Task:
     priority: int  # 1 is the most urgent
     pet: Pet  # each task depends on a pet (Task "many" -> "1" Pet)
     completed: bool = False
+    frequency: str = "once"  # "once", "daily" or "weekly"
+    start_time: datetime | None = None  # optional; only timed tasks can conflict
 
-    def complete(self) -> None:
-        pass
+    def __post_init__(self) -> None:
+        if self.frequency != "once" and self.frequency not in FREQUENCY_DAYS:
+            raise ValueError(f"Unknown frequency: {self.frequency}")
+
+    @property
+    def end_time(self) -> datetime | None:
+        if self.start_time is None:
+            return None
+        return self.start_time + timedelta(minutes=self.duration)
+
+    def complete(self) -> Task | None:
+        """Mark done; for a recurring task, return the next occurrence (else None)."""
+        self.completed = True
+        if self.frequency == "once":
+            return None
+        shift = timedelta(days=FREQUENCY_DAYS[self.frequency])
+        next_start = self.start_time + shift if self.start_time else None
+        return replace(
+            self, deadline=self.deadline + shift, start_time=next_start, completed=False
+        )
+
+
+def _priority_key(task: Task) -> tuple:
+    # 1. completed: incomplete tasks first, completed tasks last
+    # 2. priority: ascending, since 1 is the most urgent
+    # 3. deadline: earliest first, to break priority ties
+    # 4. duration: shortest first, to break deadline ties
+    return (task.completed, task.priority, task.deadline, task.duration)
 
 
 @dataclass
-class TodoList:
-    tasks: list[Task] = field(default_factory=list)
+class Scheduler:
+    # Scheduler "1" -> "1" Owner; excluded from repr/eq to avoid infinite recursion
+    owner: Owner = field(repr=False, compare=False)
+    tasks: list[Task] = field(default_factory=list)  # Scheduler "1" -> "many" Task
 
     def display_list(self) -> None:
-        pass
+        if not self.tasks:
+            print("No tasks.")
+            return
+        for i, task in enumerate(self.tasks, start=1):
+            mark = "x" if task.completed else " "
+            print(
+                f"{i}. [{mark}] {task.description} ({task.pet.name}) - "
+                f"priority {task.priority}, due {task.deadline}, "
+                f"{task.duration} min, {task.frequency}"
+                + (f", starts {task.start_time:%Y-%m-%d %H:%M}" if task.start_time else "")
+            )
 
     def prioritize(self) -> None:
-        # Sort self.tasks in place by these keys, in order:
-        #   1. completed: incomplete tasks first, completed tasks last
-        #   2. priority: ascending, since 1 is the most urgent
-        #   3. deadline: earliest first, to break priority ties
-        #   4. duration: shortest first, to break deadline ties
-        pass
+        self.tasks.sort(key=_priority_key)
+
+    def filter_tasks(
+        self, pet: Pet | None = None, completed: bool | None = None
+    ) -> list[Task]:
+        return [
+            t
+            for t in self.tasks
+            if (pet is None or t.pet is pet)
+            and (completed is None or t.completed == completed)
+        ]
+
+    def complete_task(self, task: Task) -> Task | None:
+        """Complete a task and queue its next occurrence if it recurs."""
+        next_task = task.complete()
+        if next_task is not None:
+            self.tasks.append(next_task)
+        return next_task
+
+    def fit_to_time(self) -> list[Task]:
+        """Pick incomplete tasks, most urgent first, that fit in the owner's available_time."""
+        plan: list[Task] = []
+        remaining = self.owner.available_time
+        for task in sorted(self.filter_tasks(completed=False), key=_priority_key):
+            if task.duration <= remaining:
+                plan.append(task)
+                remaining -= task.duration
+        return plan
+
+    def unscheduled(self) -> list[Task]:
+        """Incomplete tasks that fit_to_time() leaves out for lack of time."""
+        planned = {id(t) for t in self.fit_to_time()}
+        return [
+            t
+            for t in sorted(self.filter_tasks(completed=False), key=_priority_key)
+            if id(t) not in planned
+        ]
+
+    def find_conflicts(self) -> list[tuple[Task, Task]]:
+        """Pairs of incomplete timed tasks whose time ranges overlap, across all pets."""
+        timed = [t for t in self.filter_tasks(completed=False) if t.start_time]
+        return [
+            (a, b)
+            for i, a in enumerate(timed)
+            for b in timed[i + 1 :]
+            if a.start_time < b.end_time and b.start_time < a.end_time
+        ]
 
 
 @dataclass
@@ -39,11 +123,16 @@ class Food:
     serving_size: float
     quantity: int = 0  # units in stock, updated by purchase() and feed()
 
-    def purchase(self) -> None:
-        pass
+    def purchase(self, quantity: int = 1) -> None:
+        if quantity <= 0:
+            raise ValueError("quantity must be positive")
+        self.quantity += quantity
 
     def feed(self, pet: Pet) -> None:
-        pass
+        if self.quantity <= 0:
+            raise ValueError(f"No {self.food_type} left to feed {pet.name}")
+        self.quantity -= 1
+        pet.eat(self)
 
 
 @dataclass
@@ -62,34 +151,40 @@ class Pet:
         had_birthday = (today.month, today.day) >= (self.birthday.month, self.birthday.day)
         return today.year - self.birthday.year - (not had_birthday)
 
-    def eat(self) -> None:
-        pass
+    def eat(self, food: Food) -> str:
+        return f"{self.name} ate {food.serving_size} of {food.food_type}"
 
-    def walk(self) -> None:
-        pass
+    def walk(self) -> str:
+        return f"{self.name} went for a walk"
 
-    def make_sound(self) -> None:
-        pass
+    def make_sound(self) -> str:
+        sounds = {"dog": "Woof!", "cat": "Meow!", "bird": "Tweet!"}
+        return f"{self.name}: {sounds.get(self.species.lower(), '...')}"
 
-    def sleep(self) -> None:
-        pass
+    def sleep(self) -> str:
+        return f"{self.name} is sleeping"
 
-    def play(self) -> None:
-        pass
+    def play(self) -> str:
+        return f"{self.name} is playing"
 
 
 @dataclass
 class Owner:
     name: str
     available_time: int = 0  # minutes available per day, same unit as Task.duration
-    schedule: TodoList = field(default_factory=TodoList)  # Owner "1" -> "many" Task
     pets: list[Pet] = field(default_factory=list)  # Owner "1" -> "many" Pet
+    schedule: Scheduler = field(init=False)  # Owner "1" -> "1" Scheduler, holds the tasks
+
+    def __post_init__(self) -> None:
+        self.schedule = Scheduler(owner=self)
 
     def add_task(self, task: Task) -> None:
-        pass
+        if not any(task.pet is p for p in self.pets):
+            raise ValueError(f"{task.pet.name} does not belong to {self.name}")
+        self.schedule.tasks.append(task)
 
     def remove_task(self, task: Task) -> None:
-        pass
+        self.schedule.tasks.remove(task)
 
     def tasks_for(self, pet: Pet) -> list[Task]:
-        pass
+        return [t for t in self.schedule.tasks if t.pet is pet]
