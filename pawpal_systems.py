@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -7,13 +9,9 @@ class Task:
     description: str
     duration: int
     deadline: date
-    priority: int
-
-    def create(self) -> None:
-        pass
-
-    def delete(self) -> None:
-        pass
+    priority: int  # 1 is the most urgent
+    pet: Pet  # each task depends on a pet (Task "many" -> "1" Pet)
+    completed: bool = False
 
     def complete(self) -> None:
         pass
@@ -23,28 +21,28 @@ class Task:
 class TodoList:
     tasks: list[Task] = field(default_factory=list)
 
-    def add(self, task: Task) -> None:
-        pass
-
-    def remove(self, task: Task) -> None:
-        pass
-
-    def print(self) -> None:
+    def display_list(self) -> None:
         pass
 
     def prioritize(self) -> None:
+        # Sort self.tasks in place by these keys, in order:
+        #   1. completed: incomplete tasks first, completed tasks last
+        #   2. priority: ascending, since 1 is the most urgent
+        #   3. deadline: earliest first, to break priority ties
+        #   4. duration: shortest first, to break deadline ties
         pass
 
 
 @dataclass
 class Food:
-    type: str
+    food_type: str
     serving_size: float
+    quantity: int = 0  # units in stock, updated by purchase() and feed()
 
     def purchase(self) -> None:
         pass
 
-    def feed(self) -> None:
+    def feed(self, pet: Pet) -> None:
         pass
 
 
@@ -52,13 +50,17 @@ class Food:
 class Pet:
     name: str
     species: str
-    age: int
     birthday: date
     weight: float
     gender: str
     color: str
     foods: list[Food] = field(default_factory=list)  # Pet "1" -> "many" Food
-    todo_list: TodoList = field(default_factory=TodoList)  # Pet "1" -> "1" TodoList
+
+    @property
+    def age(self) -> int:
+        today = date.today()
+        had_birthday = (today.month, today.day) >= (self.birthday.month, self.birthday.day)
+        return today.year - self.birthday.year - (not had_birthday)
 
     def eat(self) -> None:
         pass
@@ -66,7 +68,7 @@ class Pet:
     def walk(self) -> None:
         pass
 
-    def bark(self) -> None:
+    def make_sound(self) -> None:
         pass
 
     def sleep(self) -> None:
@@ -79,11 +81,15 @@ class Pet:
 @dataclass
 class Owner:
     name: str
-    schedule: TodoList = field(default_factory=TodoList)
+    available_time: int = 0  # minutes available per day, same unit as Task.duration
+    schedule: TodoList = field(default_factory=TodoList)  # Owner "1" -> "many" Task
     pets: list[Pet] = field(default_factory=list)  # Owner "1" -> "many" Pet
 
-    def create_schedule(self) -> None:
+    def add_task(self, task: Task) -> None:
         pass
 
-    def edit_schedule(self) -> None:
+    def remove_task(self, task: Task) -> None:
+        pass
+
+    def tasks_for(self, pet: Pet) -> list[Task]:
         pass

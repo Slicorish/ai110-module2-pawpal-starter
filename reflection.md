@@ -23,6 +23,11 @@
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+    1. Design did change during implementation: schedule was combined with todolist, with the current logic it was an attribute that wasn't connected to an object outside of owner, as in there was not relationship with it, so it was just combined
+    2. A species attribute was added to pet, this will add more functionality for polymorphism and encapsulation if needed later down the road
+    3. My AI chat found and fixed the following relationship gaps: Task to pet link: Task now has pet: Pet | None = None; Food to pet link: Food.feed(self, pet: Pet) now takes the pet it feeds; Completion state: Task.completed: bool = False, which complete() can set later; Food stock: Food.quantity: int = 0, which purchase() and feed() can update; Owner's schedule now owns ass tasks, and it's still a TodoList; todolist.add and todolist.remove were removed due to overlapping functionality with edit_schedule
+    4. My AI found the following logic bottlenecks: age and birthday are redundant, they will drift out of sync you can calculate age from birthday; task.create and task.delete don't fit a dataclass; prioritize() needs a rule/logic; todolist.print() shadows built-in print, a method named display is safer to implement; owner.create_schedule and edit_schedule() overlap with TodoList. If schedule is a TodoList, then add() and remove() already do the same thing; Time-dependent scheduling has no support yet; bark() only applies to one specific species/type of pet
+
 
 ---
 

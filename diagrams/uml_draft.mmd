@@ -8,26 +8,24 @@ classDiagram
         +string gender
         +string color
         +list~Food~ foods
-        +Todo_List todo_list
         +eat()
         +walk()
-        +bark()
+        +make_sound()
         +sleep()
         +play()
     }
 
     class Food {
-        +string type
+        +string food_type
         +float serving_size
+        +int quantity
         +purchase()
-        +feed()
+        +feed(pet)
     }
 
     class Todo_List {
-        +list~Task~ task
-        +add()
-        +remove()
-        +print()
+        +list~Task~ tasks
+        +display_list()
         +prioritize()
     }
 
@@ -36,21 +34,23 @@ classDiagram
         +int duration
         +date deadline
         +int priority
-        +create()
-        +delete()
+        +Pet pet
+        +bool completed
         +complete()
     }
 
     class Owner {
         +string name
+        +int available_time
         +Todo_List schedule
         +list~Pet~ pets
-        +create_schedule()
-        +edit_schedule()
+        +add_task(task)
+        +remove_task(task)
+        +tasks_for(pet)
     }
 
     Owner "1" --> "many" Pet : owns
-    Pet "1" --> "many" Food : eats
-    Pet "1" --> "1" Todo_List : has
-    Todo_List "1" --> "many" Task : contains
     Owner "1" --> "1" Todo_List : schedule
+    Pet "1" --> "many" Food : eats
+    Todo_List "1" --> "many" Task : contains
+    Task "many" --> "1" Pet : depends on
