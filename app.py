@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, time
 
 import streamlit as st
 
@@ -80,27 +80,95 @@ if owner.pets:
     with col4:
         priority = st.selectbox("Priority", list(PRIORITIES), index=0)
 
+    col5, col6, col7 = st.columns(3)
+    with col5:
+        frequency = st.selectbox("Repeats", ["once", "daily", "weekly"])
+    with col6:
+        timed = st.checkbox("Set a start time")
+    with col7:
+        start_clock = st.time_input("Start time", value=time(9, 0), disabled=not timed)
+
     if st.button("Add task"):
+        start_time = datetime.combine(date.today(), start_clock) if timed else None
         owner.add_task(
-            Task(task_title, int(duration), date.today(), PRIORITIES[priority], owner.pets[pet_index])
+            Task(
+                task_title,
+                int(duration),
+                date.today(),
+                PRIORITIES[priority],
+                owner.pets[pet_index],
+                frequency=frequency,
+                start_time=start_time,
+            )
         )
         st.success(f"Added task '{task_title}' for {owner.pets[pet_index].name}.")
 else:
     st.info("Add a pet before adding tasks.")
 
-if owner.schedule.tasks:
-    st.table(
-        [
-            {
-                "task": t.description,
-                "pet": t.pet.name,
-                "minutes": t.duration,
-                "priority": t.priority,
-                "done": t.completed,
-            }
-            for t in owner.schedule.tasks
-        ]
-    )
+scheduler = owner.schedule
+
+
+def fmt_time(t: Task) -> str:
+    return f"{t.start_time:%H:%M}-{t.end_time:%H:%M}" if t.start_time else "-"
+
+
+if scheduler.tasks:
+    f1, f2, f3 = st.columns(3)
+    with f1:
+        pet_filter = st.selectbox(
+            "Show pet", [None, *owner.pets], format_func=lambda p: "All pets" if p is None else p.name
+        )
+    with f2:
+        status_filter = st.radio("Show status", ["All", "To do", "Done"], horizontal=True)
+    with f3:
+        by_time = st.toggle("Sort by time", value=False)
+
+    completed = {"All": None, "To do": False, "Done": True}[status_filter]
+    shown = scheduler.filter_tasks(pet=pet_filter, completed=completed)
+    if by_time:
+        order = {id(t): i for i, t in enumerate(scheduler.sort_by_time())}
+        shown.sort(key=lambda t: order[id(t)])
+
+    if shown:
+        st.table(
+            [
+                {
+                    "task": t.description,
+                    "pet": t.pet.name,
+                    "time": fmt_time(t),
+                    "minutes": t.duration,
+                    "priority": t.priority,
+                    "repeats": t.frequency,
+                    "done": t.completed,
+                }
+                for t in shown
+            ]
+        )
+    else:
+        st.info("No tasks match these filters.")
+
+    pending = scheduler.filter_tasks(completed=False)
+    if pending:
+        to_complete = st.selectbox(
+            "Mark a task complete",
+            pending,
+            format_func=lambda t: f"{t.description} ({t.pet.name})",
+        )
+        if st.button("Complete task"):
+            nxt = scheduler.complete_task(to_complete)
+            st.success(
+                f"Completed '{to_complete.description}'."
+                + (f" Next {nxt.frequency} occurrence due {nxt.deadline}." if nxt else "")
+            )
+            st.rerun()
+
+    for a, b in scheduler.find_conflicts():
+        slot = scheduler.next_free_slot(b.duration, b.start_time, exclude=b)
+        st.warning(
+            f"Conflict: {a.description} ({a.pet.name}, {fmt_time(a)}) overlaps "
+            f"{b.description} ({b.pet.name}, {fmt_time(b)}). "
+            f"Next free slot for {b.description}: {slot:%H:%M}."
+        )
 elif owner.pets:
     st.info("No tasks yet. Add one above.")
 
@@ -110,7 +178,6 @@ st.subheader("Build Schedule")
 st.caption("Most urgent tasks first, as many as fit in the time available.")
 
 if st.button("Generate schedule"):
-    scheduler = owner.schedule
     scheduler.prioritize()
     plan = scheduler.fit_to_time()
     if plan:
@@ -118,13 +185,27 @@ if st.button("Generate schedule"):
         st.success(f"{len(plan)} tasks planned, {total} of {owner.available_time} minutes used.")
         st.table(
             [
-                {"order": i, "task": t.description, "pet": t.pet.name, "minutes": t.duration, "priority": t.priority}
+                {
+                    "order": i,
+                    "task": t.description,
+                    "pet": t.pet.name,
+                    "time": fmt_time(t),
+                    "minutes": t.duration,
+                    "priority": t.priority,
+                }
                 for i, t in enumerate(plan, start=1)
             ]
         )
     else:
         st.warning("Nothing fits in the time available.")
-    left_out = scheduler.unscheduled()
+    for skipped, blocker in scheduler.conflicting_tasks():
+        slot = scheduler.next_free_slot(skipped.duration, skipped.start_time, exclude=skipped)
+        st.warning(
+            f"Skipped {skipped.description} ({skipped.pet.name}): overlaps "
+            f"{blocker.description} ({blocker.pet.name}). Try {slot:%H:%M} instead."
+        )
+    conflicted = {id(t) for t, _ in scheduler.conflicting_tasks()}
+    left_out = [t for t in scheduler.unscheduled() if id(t) not in conflicted]
     if left_out:
         st.warning(
             "Not enough time for: " + ", ".join(f"{t.description} ({t.pet.name})" for t in left_out)

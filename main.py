@@ -7,6 +7,15 @@ def at(hour: int, minute: int = 0) -> datetime:
     return datetime.combine(date.today(), time(hour, minute))
 
 
+def show(tasks: list[Task]) -> None:
+    if not tasks:
+        print("  (none)")
+    for t in tasks:
+        when = f"{t.start_time:%I:%M %p}" if t.start_time else "  --   "
+        mark = "x" if t.completed else " "
+        print(f"  [{mark}] {when}  {t.description:<16} {t.pet.name:<9} {t.duration:>3} min  (priority {t.priority})")
+
+
 def main() -> None:
     owner = Owner("Saniya", available_time=120)
 
@@ -15,18 +24,34 @@ def main() -> None:
     owner.pets.extend([Sparky, Garfield])
 
     today = date.today()
+    # Added deliberately out of time order, with one untimed task
+    owner.add_task(Task("Brush fur", 15, today, 3, Garfield, start_time=at(18, 30)))
+    owner.add_task(Task("Vet check-up", 45, today, 2, Sparky, start_time=at(14, 0)))
+    owner.add_task(Task("Buy cat food", 20, today, 2, Garfield))
     owner.add_task(Task("Morning walk", 30, today, 1, Sparky, frequency="daily", start_time=at(7, 30)))
     owner.add_task(Task("Feed breakfast", 10, today, 1, Garfield, frequency="daily", start_time=at(8, 15)))
-    owner.add_task(Task("Vet check-up", 45, today, 2, Sparky, start_time=at(14, 0)))
-    owner.add_task(Task("Brush fur", 15, today, 3, Garfield, start_time=at(18, 30)))
 
-    print(f"Today's Schedule for {owner.name} ({today:%A, %B %d})")
-    print("-" * 50)
-    for task in sorted(owner.schedule.tasks, key=lambda t: t.start_time):
-        print(
-            f"{task.start_time:%I:%M %p}  {task.description:<16} "
-            f"{task.pet.name:<6} {task.duration:>3} min  (priority {task.priority})"
-        )
+    scheduler = owner.schedule
+    vet = next(t for t in scheduler.tasks if t.description == "Vet check-up")
+    scheduler.complete_task(vet)  # one-off task, so no repeat is queued
+
+    print("Added order (unsorted)")
+    show(scheduler.tasks)
+
+    print(f"\nToday's Schedule for {owner.name} ({today:%A, %B %d}) - sort_by_time()")
+    show(scheduler.sort_by_time())
+
+    print("\nSparky's tasks - filter_tasks(pet_name='sparky')")
+    show(scheduler.filter_tasks(pet_name="sparky"))
+
+    print("\nGarfield's pending tasks - filter_tasks(pet_name='Garfield', completed=False)")
+    show(scheduler.filter_tasks(pet_name="Garfield", completed=False))
+
+    print("\nCompleted tasks - filter_tasks(completed=True)")
+    show(scheduler.filter_tasks(completed=True))
+
+    print("\nUnknown pet - filter_tasks(pet_name='Nobody')")
+    show(scheduler.filter_tasks(pet_name="Nobody"))
 
 
 if __name__ == "__main__":

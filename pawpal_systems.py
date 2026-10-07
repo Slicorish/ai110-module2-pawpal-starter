@@ -31,15 +31,23 @@ class Task:
         return self.start_time + timedelta(minutes=self.duration)
 
     def complete(self) -> Task | None:
-        """Mark done; for a recurring task, return the next occurrence (else None)."""
+        """Mark done; for a recurring task, return the next occurrence (else None).
+
+        Completing an already-completed task does nothing, so it can't spawn duplicates.
+        The next occurrence is due today plus one period (1 day daily, 7 days weekly),
+        however early or late this one was completed.
+        """
+        if self.completed:
+            return None
         self.completed = True
         if self.frequency == "once":
             return None
         shift = timedelta(days=FREQUENCY_DAYS[self.frequency])
-        next_start = self.start_time + shift if self.start_time else None
-        return replace(
-            self, deadline=self.deadline + shift, start_time=next_start, completed=False
+        next_deadline = date.today() + shift
+        next_start = (
+            self.start_time + (next_deadline - self.deadline) if self.start_time else None
         )
+        return replace(self, deadline=next_deadline, start_time=next_start, completed=False)
 
 
 def _priority_key(task: Task) -> tuple:
@@ -48,6 +56,11 @@ def _priority_key(task: Task) -> tuple:
     # 3. deadline: earliest first, to break priority ties
     # 4. duration: shortest first, to break deadline ties
     return (task.completed, task.priority, task.deadline, task.duration)
+
+
+def _overlaps(a: Task, b: Task) -> bool:
+    """True if two timed tasks' [start, end) ranges intersect."""
+    return a.start_time < b.end_time and b.start_time < a.end_time
 
 
 @dataclass
@@ -74,14 +87,25 @@ class Scheduler:
         """Sort the tasks in place: incomplete first, then priority, deadline, duration."""
         self.tasks.sort(key=_priority_key)
 
+    def sort_by_time(self) -> list[Task]:
+        """Return the tasks ordered by start_time, untimed last, ties broken by priority."""
+        return sorted(
+            self.tasks,
+            key=lambda t: (t.start_time is None, t.start_time or datetime.max, _priority_key(t)),
+        )
+
     def filter_tasks(
-        self, pet: Pet | None = None, completed: bool | None = None
+        self,
+        pet: Pet | None = None,
+        completed: bool | None = None,
+        pet_name: str | None = None,
     ) -> list[Task]:
-        """Return the tasks matching the given pet and completion status (None = any)."""
+        """Return the tasks matching the pet, pet name (case-insensitive) and completion status (None = any)."""
         return [
             t
             for t in self.tasks
             if (pet is None or t.pet is pet)
+            and (pet_name is None or t.pet.name.lower() == pet_name.lower())
             and (completed is None or t.completed == completed)
         ]
 
@@ -92,18 +116,57 @@ class Scheduler:
             self.tasks.append(next_task)
         return next_task
 
-    def fit_to_time(self) -> list[Task]:
-        """Pick incomplete tasks, most urgent first, that fit in the owner's available_time."""
+    def _plan(self) -> tuple[list[Task], list[tuple[Task, Task]]]:
+        """Greedy plan in urgency order; also returns (skipped, blocker) conflict pairs.
+
+        A task is skipped if it doesn't fit the remaining time, or if it is timed and
+        overlaps a timed task already in the plan.
+        """
         plan: list[Task] = []
+        conflicts: list[tuple[Task, Task]] = []
         remaining = self.owner.available_time
         for task in sorted(self.filter_tasks(completed=False), key=_priority_key):
-            if task.duration <= remaining:
-                plan.append(task)
-                remaining -= task.duration
-        return plan
+            if task.duration > remaining:
+                continue
+            blocker = next(
+                (p for p in plan if task.start_time and p.start_time and _overlaps(task, p)),
+                None,
+            )
+            if blocker:
+                conflicts.append((task, blocker))
+                continue
+            plan.append(task)
+            remaining -= task.duration
+        return plan, conflicts
+
+    def fit_to_time(self) -> list[Task]:
+        """Pick incomplete tasks, most urgent first, that fit in available_time without overlapping."""
+        return self._plan()[0]
+
+    def conflicting_tasks(self) -> list[tuple[Task, Task]]:
+        """(task, blocker) pairs: tasks dropped from the plan because they overlap a planned one."""
+        return self._plan()[1]
+
+    def next_free_slot(
+        self, duration: int, after: datetime, exclude: Task | None = None
+    ) -> datetime:
+        """Earliest start at or after `after` where `duration` minutes clear every timed task."""
+        busy = sorted(
+            (t for t in self.filter_tasks(completed=False) if t.start_time and t is not exclude),
+            key=lambda t: t.start_time,
+        )
+        candidate = after
+        length = timedelta(minutes=duration)
+        for t in busy:
+            if t.end_time <= candidate:
+                continue
+            if candidate + length <= t.start_time:
+                break
+            candidate = t.end_time
+        return candidate
 
     def unscheduled(self) -> list[Task]:
-        """Incomplete tasks that fit_to_time() leaves out for lack of time."""
+        """Incomplete tasks that fit_to_time() leaves out (no time left, or a conflict)."""
         planned = {id(t) for t in self.fit_to_time()}
         return [
             t
@@ -118,7 +181,7 @@ class Scheduler:
             (a, b)
             for i, a in enumerate(timed)
             for b in timed[i + 1 :]
-            if a.start_time < b.end_time and b.start_time < a.end_time
+            if _overlaps(a, b)
         ]
 
 
