@@ -64,45 +64,6 @@ pytest
 pytest --cov
 ```
 
-Sample test output:
-
-```
-# Paste your pytest output here
-```
-
-## 📐 Smarter Scheduling
-
-> Fill in once you've implemented scheduling logic.
-
-IN PAWPAL_SYSTEMS.PY
-1. Urgency ordering key: _priority_key --> Builds the sort key (completed, priority, deadline, duration): incomplete tasks first, then lowest priority number, earliest deadline, shortest duration. Every other sort below uses it.
-
-2. Sort the task list in place by urgency:	Scheduler.prioritize (line 89) --> Sorts self.tasks with _priority_key. The app calls this when you click Generate schedule.
-
-3. Sort by start time:	Scheduler.sort_by_time  --> Returns a new list ordered by start_time. Untimed tasks go last, and ties are broken with _priority_key. It doesn't change self.tasks.
-
-4. Urgency order inside planning:	Scheduler._plan --> Sorts the incomplete tasks with _priority_key, then picks greedily. fit_to_time, conflicting_tasks and unscheduled all use this order.
-
-5. Urgency order for leftovers: Scheduler.unscheduled  --> 	Returns the tasks the plan left out, sorted by _priority_key.
-
-6. Start-time order for slot search: Scheduler.next_free_slot --> Sorts the busy tasks by start_time to sweep for the first gap that fits.
-
-IN APP.PY
-
-7. Generate schedule: Calls prioritize() and fit_to_time(), then shows the plan table and how many of the available minutes are used.
-
-8. Skipped-for-overlap warnings: One warning per task from conflicting_tasks(), with a suggested slot from next_free_slot().
-
-9. Not-enough-time warning:	Lists unscheduled() tasks that weren't skipped for a conflict.
-
-10. Live conflict warnings	app.py:165-167	Shows conflict_warnings() under the task list, as soon as tasks overlap.
-
-11. Complete task and queue the next one: Calls complete_task() and reports the next due date for recurring tasks.
-
-12. Add timed or recurring tasks: The "Set a start time" checkbox and "Repeats" dropdown feed the scheduling logic.
-
-## Testing PawPal+
-
 * Command to run tests in terminal: python3 -m pytest
 The 37 tests in tests/test_pawpal.py cover the scheduling logic in pawpal_systems.py, with a mix of normal cases and edge cases:
 
@@ -135,6 +96,36 @@ tests/test_pawpal.py .....................................                      
 
 CONFIDENCE LEVEL: 4
 
+## 📐 Smarter Scheduling
+
+> Fill in once you've implemented scheduling logic.
+
+IN PAWPAL_SYSTEMS.PY
+1. Urgency ordering key: _priority_key --> Builds the sort key (completed, priority, deadline, duration): incomplete tasks first, then lowest priority number, earliest deadline, shortest duration. Every other sort below uses it.
+
+2. Sort the task list in place by urgency:	Scheduler.prioritize (line 89) --> Sorts self.tasks with _priority_key. The app calls this when you click Generate schedule.
+
+3. Sort by start time:	Scheduler.sort_by_time  --> Returns a new list ordered by start_time. Untimed tasks go last, and ties are broken with _priority_key. It doesn't change self.tasks.
+
+4. Urgency order inside planning:	Scheduler._plan --> Sorts the incomplete tasks with _priority_key, then picks greedily. fit_to_time, conflicting_tasks and unscheduled all use this order.
+
+5. Urgency order for leftovers: Scheduler.unscheduled  --> 	Returns the tasks the plan left out, sorted by _priority_key.
+
+6. Start-time order for slot search: Scheduler.next_free_slot --> Sorts the busy tasks by start_time to sweep for the first gap that fits.
+
+IN APP.PY
+
+7. Generate schedule: Calls prioritize() and fit_to_time(), then shows the plan table and how many of the available minutes are used.
+
+8. Skipped-for-overlap warnings: One warning per task from conflicting_tasks(), with a suggested slot from next_free_slot().
+
+9. Not-enough-time warning:	Lists unscheduled() tasks that weren't skipped for a conflict.
+
+10. Live conflict warnings	app.py:165-167	Shows conflict_warnings() under the task list, as soon as tasks overlap.
+
+11. Complete task and queue the next one: Calls complete_task() and reports the next due date for recurring tasks.
+
+12. Add timed or recurring tasks: The "Set a start time" checkbox and "Repeats" dropdown feed the scheduling logic.
 
 
 
@@ -147,5 +138,67 @@ Describe your app in numbered steps so a reader can follow along without watchin
 3. <!-- Describe this step -->
 4. <!-- Describe this step -->
 5. <!-- Add more steps as needed -->
+Features:
+PawPal+ is a Streamlit app (streamlit run app.py) for planning pet care. From top to bottom, the page lets you:
+
+* Set up the owner: enter your name and how many minutes you have available today.
+* Add pets: enter name, species, birthday, weight, gender and color. Added pets appear in a table with their computed age.
+* Add tasks: choose a title, a pet, a duration, a priority (high, medium or low) and how often it repeats (once, daily or weekly). You can also set an optional start time.
+* View and filter tasks: filter by pet and by status (All, To do, Done), and toggle sorting by time. Tasks that overlap another task get a ⚠️ in the table.
+* Complete a task: a recurring task automatically queues its next occurrence.
+* See conflict warnings: overlapping tasks are listed in one warning, each with a suggested free slot. The page shows a green "No scheduling conflicts" message when there are none.
+* Generate a schedule: this builds today's plan from the most urgent tasks that fit in your available time. It also lists tasks skipped for overlapping a planned task, and tasks that didn't fit in the time.
+
+
+Example workflow:
+1. Enter your name and set 120 minutes available.
+2. Add a pet, for example Mochi, a white dog.
+3. Add a task: "Morning walk", 30 minutes, high priority, daily, starting at 9:00. Add "Vet check-up", 45 minutes, starting at 9:15.
+4. In the task list, both tasks show a ⚠️. A warning says "Morning walk (09:00-09:30) overlaps Vet check-up (09:15-10:00) … Next free slot for 'Vet check-up': 09:30."
+5. Fix it by adding the vet task again at 9:30, or just move on. Turn on "Sort by time" to see the day in order.
+6. Click Generate schedule. The table shows the plan in priority order, and a message shows how many of your minutes it uses. The overlapping vet task is listed as skipped, with a suggested time.
+7. Select "Morning walk" and click Complete task. Tomorrow's walk is added automatically.
+
+
+Scheduler behaviors shown: 
+* Sorting: tasks sort by start time, with untimed tasks last and ties broken by priority. The plan itself is ordered by priority, then deadline, then shortest duration.
+* Filtering: by pet name (case-insensitive) and by completion status.
+Conflict warnings: any two timed tasks whose time ranges overlap are flagged, for the same pet or different pets. Back-to-back tasks are fine. The check never crashes the page, even on bad time data.
+* Recurring tasks: completing a daily or weekly task queues the next one from today's date, whether it was done early or late. Completing the same task twice doesn't create a duplicate.
+* Time budget: the plan only includes tasks that fit in your available minutes. Tasks that don't fit are listed separately.
+
+
+Sample CLI output" 
+Added order (unsorted)
+  [ ] 06:30 PM  Brush fur        Garfield   15 min  (priority 3)
+  [x] 02:00 PM  Vet check-up     Sparky     45 min  (priority 2)
+  [ ]   --     Buy cat food     Garfield   20 min  (priority 2)
+  [ ] 07:30 AM  Morning walk     Sparky     30 min  (priority 1)
+  [ ] 08:15 AM  Feed breakfast   Garfield   10 min  (priority 1)
+
+Today's Schedule for Saniya (Wednesday, October 07) - sort_by_time()
+  [ ] 07:30 AM  Morning walk     Sparky     30 min  (priority 1)
+  [ ] 08:15 AM  Feed breakfast   Garfield   10 min  (priority 1)
+  [x] 02:00 PM  Vet check-up     Sparky     45 min  (priority 2)
+  [ ] 06:30 PM  Brush fur        Garfield   15 min  (priority 3)
+  [ ]   --     Buy cat food     Garfield   20 min  (priority 2)
+
+Sparky's tasks - filter_tasks(pet_name='sparky')
+  [x] 02:00 PM  Vet check-up     Sparky     45 min  (priority 2)
+  [ ] 07:30 AM  Morning walk     Sparky     30 min  (priority 1)
+
+Garfield's pending tasks - filter_tasks(pet_name='Garfield', completed=False)
+  [ ] 06:30 PM  Brush fur        Garfield   15 min  (priority 3)
+  [ ]   --     Buy cat food     Garfield   20 min  (priority 2)
+  [ ] 08:15 AM  Feed breakfast   Garfield   10 min  (priority 1)
+
+Completed tasks - filter_tasks(completed=True)
+  [x] 02:00 PM  Vet check-up     Sparky     45 min  (priority 2)
+
+Unknown pet - filter_tasks(pet_name='Nobody')
+  (none)
+
+Conflict check - conflict_warnings()
+  Warning: 'Morning walk' (07:30-08:00) overlaps 'Grooming' (07:30-08:00) for Sparky and Garfield. Next free slot for 'Grooming': 08:25.
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->

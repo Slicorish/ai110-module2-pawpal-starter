@@ -38,6 +38,22 @@
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+The scheduler considers five constraints:
+
+1. Available time: The owner enters how many minutes they have today, and the plan only includes tasks whose durations fit in that total. This is a hard limit.
+2. Priority: Each task has a priority from 1 (high) to 3 (low), and more urgent tasks are planned first.
+3. Deadline: If two tasks have the same priority, the one due earlier goes first.
+4. Duration:  If priority and deadline are also tied, the shorter task goes first, so more tasks fit.
+5. Start-time overlap:  Tasks that have a start time can't overlap one another. If a lower-priority task overlaps one already planned, it's skipped and the app suggests the next free slot. Tasks without a start time are never treated as conflicts.
+
+
+I didn't build owner or pet specific preferences, like "Owner prefers walks in the morning" or "Mochi hates baths", and tasks don't have a travel or transition time between them.That could be implemented in a future version.
+
+I ordered the constraints as follows: 
+Time came first because it's physical. An owner can't do more than the minutes they have, so it's a hard cutoff and not a preference. Priority came next because it reflects consequences. Missing a medication or vet visit matters more than brushing fur, so priority decides what gets dropped when time is short. Deadline and then duration only break ties, in that order. A task due sooner is more urgent than a shorter one, but squeezing in one more short task is a reasonable final tie-break. Overlaps were a different kind of constraint, since one person can't do two things at once, so overlapping tasks are treated as impossible. Priority  decides which of two overlapping tasks wins.
+
+
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
@@ -56,14 +72,20 @@ The greedy plan books the 45-minute task, and neither 30-minute task fits in the
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+* I used AI tools for debugging, refactoring, reorganizing logic for class construction/relation, and for building out and improving the logic for the core methods as well as scheduling 
+
+* Prompts inquiring how to improve logic or looking for logic gaps were most helpful when debugging/refacoring my code 
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+* When I didn't fully understand the code suggestions, I looked for alternative methods that made more sense to me. 
 
+- How did you evaluate or verify what the AI suggested?
+* I tested the application live to look for bugs/gaps/errors, and built test cases
 ---
 
-## 4. Testing and Verification
+## 4. Testing and Verification - did this in readme.md
 
 **a. What you tested**
 
@@ -81,12 +103,12 @@ The greedy plan books the 45-minute task, and neither 30-minute task fits in the
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+- I'm most satisfied with the frontend and backend logic for the most part. The design is simple and straightforward, and the logic considers enough variables/preferences to be useful
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+- I woule improve the way my classes and their attributes and methods are structured. I would also take into account more preferences for the logic when building out the schedule (like owner and pet preferences) 
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+- I learned that starting with a UML diagram to map out the high level structure of the program was very useful. It's not something that I usually do, but it made the project easier to break down into smaller pieces

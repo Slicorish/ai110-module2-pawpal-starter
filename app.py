@@ -130,10 +130,17 @@ if scheduler.tasks:
         order = {id(t): i for i, t in enumerate(scheduler.sort_by_time())}
         shown.sort(key=lambda t: order[id(t)])
 
+    # Tasks involved in an overlap get a warning marker in the table below
+    try:
+        in_conflict = {id(t) for pair in scheduler.find_conflicts() for t in pair}
+    except Exception:
+        in_conflict = set()  # bad time data; conflict_warnings() below reports it
+
     if shown:
         st.table(
             [
                 {
+                    "": "⚠️" if id(t) in in_conflict else "",
                     "task": t.description,
                     "pet": t.pet.name,
                     "time": fmt_time(t),
@@ -165,7 +172,14 @@ if scheduler.tasks:
 
     conflict_msgs = scheduler.conflict_warnings()
     if conflict_msgs:
-        st.warning(f"{len(conflict_msgs)} scheduling conflict(s) found:\n\n" + "\n\n".join(conflict_msgs))
+        # One box: a headline saying how many, then one bullet per conflict with the fix
+        st.warning(
+            f"**{len(conflict_msgs)} scheduling conflict(s).** "
+            "You can't do these at the same time; change a start time or follow the suggestion.\n\n"
+            + "\n".join(f"- {m.removeprefix('Warning: ')}" for m in conflict_msgs)
+        )
+    elif any(t.start_time and not t.completed for t in scheduler.tasks):
+        st.success("No scheduling conflicts.")
 elif owner.pets:
     st.info("No tasks yet. Add one above.")
 
@@ -175,7 +189,6 @@ st.subheader("Build Schedule")
 st.caption("Most urgent tasks first, as many as fit in the time available.")
 
 if st.button("Generate schedule"):
-    scheduler.prioritize()
     plan = scheduler.fit_to_time()
     if plan:
         total = sum(t.duration for t in plan)

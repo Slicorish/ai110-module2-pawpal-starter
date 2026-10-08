@@ -2,8 +2,8 @@ classDiagram
     class Pet {
         +string name
         +string species
-        +int age
         +date birthday
+        +int age
         +float weight
         +string gender
         +string color
@@ -28,11 +28,16 @@ classDiagram
         +list~Task~ tasks
         +display_list()
         +prioritize()
+        +sort_by_time() list~Task~
         +filter_tasks(pet, completed, pet_name) list~Task~
         +complete_task(task) Task
         +fit_to_time() list~Task~
+        +conflicting_tasks() list~tuple~
         +unscheduled() list~Task~
         +find_conflicts() list~tuple~
+        +conflict_warnings() list~str~
+        +next_free_slot(duration, after, exclude) datetime
+        -_plan() tuple
     }
 
     class Task {
@@ -59,9 +64,16 @@ classDiagram
         +tasks_for(pet) list~Task~
     }
 
+    note for Pet "age is a property computed from birthday"
+    note for Task "start_time is optional (untimed tasks never conflict).<br/>end_time is a property: start_time + duration.<br/>frequency must be once, daily or weekly (checked on creation)."
+    note for Scheduler "fit_to_time, conflicting_tasks and unscheduled all use _plan(),<br/>a greedy pass in urgency order (completed, priority, deadline, duration).<br/>Conflict = [start, end) ranges overlap; back-to-back is allowed.<br/>conflict_warnings never raises and suggests next_free_slot."
+    note for Owner "add_task rejects a task whose pet is not one of the owner's pets"
+
     Owner "1" --> "many" Pet : owns
-    Owner "1" --> "1" Scheduler : schedule
-    Pet "1" --> "many" Food : eats
-    Scheduler "1" --> "1" Owner : serves
-    Scheduler "1" --> "many" Task : contains
+    Owner "1" *-- "1" Scheduler : creates
+    Scheduler "1" --> "1" Owner : reads available_time
+    Scheduler "1" o-- "many" Task : contains
     Task "many" --> "1" Pet : depends on
+    Task ..> Task : complete() creates next occurrence
+    Pet "1" --> "many" Food : eats
+    Food ..> Pet : feed() calls eat()
