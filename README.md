@@ -101,6 +101,40 @@ IN APP.PY
 
 12. Add timed or recurring tasks: The "Set a start time" checkbox and "Repeats" dropdown feed the scheduling logic.
 
+## Testing PawPal+
+
+* Command to run tests in terminal: python3 -m pytest
+The 37 tests in tests/test_pawpal.py cover the scheduling logic in pawpal_systems.py, with a mix of normal cases and edge cases:
+
+- Tasks and ownership: completing a task, adding tasks to a pet, and rejecting a task for a pet the owner doesn't have.
+
+- Sorting: sort_by_time orders tasks chronologically, puts untimed tasks last, and breaks ties by priority. Fully tied tasks stay in their original order, and prioritize moves completed tasks to the bottom.
+
+- Filtering: by pet name (case-insensitive), by completion status, and for pets that have no tasks or don't exist.
+
+- Recurring tasks: daily and weekly tasks create the next occurrence from today's date, whether completed early, on time or late. Completing a task twice doesn't create duplicates, and one-off tasks don't repeat. An unknown frequency is rejected.
+
+- Conflict detection: two tasks at the same time, partial overlaps, one task inside another and three-way overlaps are caught, for one pet or several. Back-to-back tasks, untimed tasks and completed tasks aren't flagged. A task that runs past midnight is handled.
+
+- Warnings: conflict messages name the pets involved and suggest the next free slot. Bad time data, such as mixing timezone-aware and naive datetimes, produces a warning instead of a crash.
+
+- Planning: the schedule fits the most urgent tasks into the owner's available time. It also covers a task that exactly fills the remaining time, tasks longer than the budget, zero available time and an empty task list.
+
+- Next free slot: it skips past adjacent tasks, uses a gap only when the task fits, ignores the task being moved, and returns the requested time unchanged if it's after every task.
+
+TERMINAL OUTPUT AFTER RUNNING ALL 37 TEST CASES: 
+=====================================test session starts ===================================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/slmacbook/Desktop/ai110-module2-pawpal-starter
+plugins: anyio-4.15.1
+collected 37 items                                                                                                                                          
+
+tests/test_pawpal.py .....................................                                                                                            [100%]
+
+========================================= 37 passed in 0.05s ===============================
+
+CONFIDENCE LEVEL: 4
+
 
 
 
