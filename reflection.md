@@ -43,6 +43,10 @@
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+One tradeoff is that fit_to_time() in pawpal_systems.py builds the plan greedily, in priority order, meaning it never searches for the best combination. It goes through the tasks from most to least urgent and keeps each one that still fits in the remaining time and doesn't overlap something already planned. This makes the algorithm logic simple, fast and predictable. Urgent tasks always win, and it's easy to explain why a task was skipped. The downside is that it can produce a worse plan than one that looks at all the tasks together. For example, with 60 minutes available, The same thing happens with overlaps: a high-priority task that sits across two lower-priority ones blocks both, even if those two together matter more. A priority 1 task takes 45 minutes.Two priority 2 tasks take 30 minutes each.
+The greedy plan books the 45-minute task, and neither 30-minute task fits in the remaining 15. That's one task for 45 minutes, when the two 30-minute tasks could have used all 60. 
+
+
 ---
 
 ## 3. AI Collaboration

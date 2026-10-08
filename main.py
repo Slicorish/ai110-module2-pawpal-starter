@@ -4,10 +4,12 @@ from pawpal_systems import Owner, Pet, Task
 
 
 def at(hour: int, minute: int = 0) -> datetime:
+    """Return today's date at the given hour and minute."""
     return datetime.combine(date.today(), time(hour, minute))
 
 
 def show(tasks: list[Task]) -> None:
+    """Print each task on one line with status, start time, pet, duration and priority."""
     if not tasks:
         print("  (none)")
     for t in tasks:
@@ -17,6 +19,7 @@ def show(tasks: list[Task]) -> None:
 
 
 def main() -> None:
+    """Demo the Scheduler: sorting, filtering, recurring tasks and conflict warnings."""
     owner = Owner("Saniya", available_time=120)
 
     Sparky = Pet("Sparky", "dog", date(2021, 3, 14), 22.5, "M", "brown")
@@ -52,6 +55,16 @@ def main() -> None:
 
     print("\nUnknown pet - filter_tasks(pet_name='Nobody')")
     show(scheduler.filter_tasks(pet_name="Nobody"))
+
+    # Two tasks for different pets at the exact same time
+    owner.add_task(Task("Grooming", 30, today, 2, Garfield, start_time=at(7, 30)))
+
+    print("\nConflict check - conflict_warnings()")
+    warnings = scheduler.conflict_warnings()
+    for message in warnings:
+        print(f"  {message}")
+    if not warnings:
+        print("  (no conflicts)")
 
 
 if __name__ == "__main__":

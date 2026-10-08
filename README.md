@@ -74,12 +74,35 @@ Sample test output:
 
 > Fill in once you've implemented scheduling logic.
 
-| Feature | Method(s) | Notes |
-|---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+IN PAWPAL_SYSTEMS.PY
+1. Urgency ordering key: _priority_key --> Builds the sort key (completed, priority, deadline, duration): incomplete tasks first, then lowest priority number, earliest deadline, shortest duration. Every other sort below uses it.
+
+2. Sort the task list in place by urgency:	Scheduler.prioritize (line 89) --> Sorts self.tasks with _priority_key. The app calls this when you click Generate schedule.
+
+3. Sort by start time:	Scheduler.sort_by_time  --> Returns a new list ordered by start_time. Untimed tasks go last, and ties are broken with _priority_key. It doesn't change self.tasks.
+
+4. Urgency order inside planning:	Scheduler._plan --> Sorts the incomplete tasks with _priority_key, then picks greedily. fit_to_time, conflicting_tasks and unscheduled all use this order.
+
+5. Urgency order for leftovers: Scheduler.unscheduled  --> 	Returns the tasks the plan left out, sorted by _priority_key.
+
+6. Start-time order for slot search: Scheduler.next_free_slot --> Sorts the busy tasks by start_time to sweep for the first gap that fits.
+
+IN APP.PY
+
+7. Generate schedule: Calls prioritize() and fit_to_time(), then shows the plan table and how many of the available minutes are used.
+
+8. Skipped-for-overlap warnings: One warning per task from conflicting_tasks(), with a suggested slot from next_free_slot().
+
+9. Not-enough-time warning:	Lists unscheduled() tasks that weren't skipped for a conflict.
+
+10. Live conflict warnings	app.py:165-167	Shows conflict_warnings() under the task list, as soon as tasks overlap.
+
+11. Complete task and queue the next one: Calls complete_task() and reports the next due date for recurring tasks.
+
+12. Add timed or recurring tasks: The "Set a start time" checkbox and "Repeats" dropdown feed the scheduling logic.
+
+
+
 
 ## 📸 Demo Walkthrough
 

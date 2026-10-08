@@ -109,6 +109,7 @@ scheduler = owner.schedule
 
 
 def fmt_time(t: Task) -> str:
+    """Format a task's time range as 'HH:MM-HH:MM', or '-' if it has no start time."""
     return f"{t.start_time:%H:%M}-{t.end_time:%H:%M}" if t.start_time else "-"
 
 
@@ -162,13 +163,9 @@ if scheduler.tasks:
             )
             st.rerun()
 
-    for a, b in scheduler.find_conflicts():
-        slot = scheduler.next_free_slot(b.duration, b.start_time, exclude=b)
-        st.warning(
-            f"Conflict: {a.description} ({a.pet.name}, {fmt_time(a)}) overlaps "
-            f"{b.description} ({b.pet.name}, {fmt_time(b)}). "
-            f"Next free slot for {b.description}: {slot:%H:%M}."
-        )
+    conflict_msgs = scheduler.conflict_warnings()
+    if conflict_msgs:
+        st.warning(f"{len(conflict_msgs)} scheduling conflict(s) found:\n\n" + "\n\n".join(conflict_msgs))
 elif owner.pets:
     st.info("No tasks yet. Add one above.")
 

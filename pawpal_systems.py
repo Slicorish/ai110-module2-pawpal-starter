@@ -51,10 +51,13 @@ class Task:
 
 
 def _priority_key(task: Task) -> tuple:
-    # 1. completed: incomplete tasks first, completed tasks last
-    # 2. priority: ascending, since 1 is the most urgent
-    # 3. deadline: earliest first, to break priority ties
-    # 4. duration: shortest first, to break deadline ties
+    """Sort key for urgency: lower tuples come first.
+
+    1. completed: incomplete tasks first, completed tasks last
+    2. priority: ascending, since 1 is the most urgent
+    3. deadline: earliest first, to break priority ties
+    4. duration: shortest first, to break deadline ties
+    """
     return (task.completed, task.priority, task.deadline, task.duration)
 
 
@@ -140,7 +143,10 @@ class Scheduler:
         return plan, conflicts
 
     def fit_to_time(self) -> list[Task]:
-        """Pick incomplete tasks, most urgent first, that fit in available_time without overlapping."""
+        """Pick incomplete tasks, most urgent first, that fit in available_time without overlapping.
+
+        Greedy: it never backtracks, so an early large task can crowd out several smaller ones.
+        """
         return self._plan()[0]
 
     def conflicting_tasks(self) -> list[tuple[Task, Task]]:
@@ -150,7 +156,12 @@ class Scheduler:
     def next_free_slot(
         self, duration: int, after: datetime, exclude: Task | None = None
     ) -> datetime:
-        """Earliest start at or after `after` where `duration` minutes clear every timed task."""
+        """Earliest start at or after `after` where `duration` minutes clear every timed task.
+
+        Sweeps the incomplete timed tasks in start order, pushing the candidate start to
+        the end of any task it would collide with, until a gap fits. `exclude` ignores one
+        task (the one being moved). Back-to-back is allowed (ranges are [start, end)).
+        """
         busy = sorted(
             (t for t in self.filter_tasks(completed=False) if t.start_time and t is not exclude),
             key=lambda t: t.start_time,
@@ -175,7 +186,10 @@ class Scheduler:
         ]
 
     def find_conflicts(self) -> list[tuple[Task, Task]]:
-        """Pairs of incomplete timed tasks whose time ranges overlap, across all pets."""
+        """Pairs of incomplete timed tasks whose time ranges overlap, across all pets.
+
+        Compares every pair once (O(n^2)); each pair is returned in list order.
+        """
         timed = [t for t in self.filter_tasks(completed=False) if t.start_time]
         return [
             (a, b)
@@ -183,6 +197,43 @@ class Scheduler:
             for b in timed[i + 1 :]
             if _overlaps(a, b)
         ]
+
+
+    def conflict_warnings(self) -> list[str]:
+        """Warning messages for overlapping timed tasks; never raises.
+
+        Each pair is checked on its own, so a task with bad timing data (e.g. mixed
+        naive/aware datetimes) yields a warning about itself instead of crashing.
+        """
+        warnings: list[str] = []
+        timed = [t for t in self.tasks if not t.completed and t.start_time]
+        for i, a in enumerate(timed):
+            for b in timed[i + 1 :]:
+                try:
+                    if not _overlaps(a, b):
+                        continue
+                    who = (
+                        f"for {a.pet.name}"
+                        if a.pet is b.pet
+                        else f"for {a.pet.name} and {b.pet.name}"
+                    )
+                    message = (
+                        f"Warning: '{a.description}' ({a.start_time:%H:%M}-{a.end_time:%H:%M}) "
+                        f"overlaps '{b.description}' ({b.start_time:%H:%M}-{b.end_time:%H:%M}) "
+                        f"{who}."
+                    )
+                    try:
+                        slot = self.next_free_slot(b.duration, b.start_time, exclude=b)
+                        message += f" Next free slot for '{b.description}': {slot:%H:%M}."
+                    except Exception:
+                        pass  # the warning is still useful without a suggestion
+                    warnings.append(message)
+                except Exception:
+                    warnings.append(
+                        f"Warning: couldn't check '{a.description}' against "
+                        f"'{b.description}' (invalid time data)."
+                    )
+        return warnings
 
 
 @dataclass
